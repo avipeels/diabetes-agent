@@ -6,6 +6,10 @@ import pickle
 import os
 from openai import OpenAI
 import re
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 

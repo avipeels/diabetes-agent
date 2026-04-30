@@ -9,6 +9,20 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# Initialize OpenAI client once
+api_key = os.getenv("OPENAI_API_KEY")
+
+# Force print to stderr to ensure it shows up
+import sys
+print(f"=== DEBUG: API Key loaded: {'Yes' if api_key else 'No'} ===", file=sys.stderr)
+if api_key:
+    print(f"=== DEBUG: API Key starts with: {api_key[:10]}... ===", file=sys.stderr)
+else:
+    print("=== DEBUG: No API key found - will use fallback responses ===", file=sys.stderr)
+
+from openai import OpenAI
+client = OpenAI(api_key=api_key) if api_key else None
+
 app = FastAPI()
 
 # Add CORS
@@ -77,15 +91,17 @@ def extract_health_values(text: str) -> dict:
 
 def ask_llm(user_message: str) -> str:
     """Get response from OpenAI API or fallback to mock responses"""
+    if not client:
+        # No API key available - use smart fallback
+        msg_lower = user_message.lower()
+        if any(greeting in msg_lower for greeting in ["hi", "hello", "hey", "good morning", "good evening"]):
+            return "Hello! I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
+        elif any(health_term in msg_lower for health_term in ["glucose", "bmi", "age", "blood sugar", "diabetes", "risk"]):
+            return "I can help with diabetes risk assessment. Please provide your glucose level, BMI, and age so I can give you a personalized evaluation."
+        else:
+            return "I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
+    
     try:
-        # Get API key from environment variable
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
-        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
