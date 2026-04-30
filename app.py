@@ -23,13 +23,8 @@ def ask_llm(user_message):
         )
         return response.choices[0].message.content
     except Exception as e:
-        # Mock responses for testing when API is down
-        if "glucose" in user_message.lower() or "bmi" in user_message.lower() or "age" in user_message.lower():
-            return "I've noted your health information. Please provide all three values (glucose, BMI, and age) to get a diabetes risk assessment."
-        elif "risk" in user_message.lower():
-            return "Based on your health metrics, I recommend consulting with a healthcare provider for personalized advice about diabetes management and prevention."
-        else:
-            return "I'm currently in offline mode, but I can still help track your health data. Please share your glucose level, BMI, and age for a risk assessment."
+        # Neutral fallback to avoid re-asking for values
+        return "Got it—processing your details now."
 
 def predict_diabetes(glucose, bmi, age):
     model = pickle.load(open("diabetes_model.pkl", "rb"))

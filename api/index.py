@@ -90,25 +90,26 @@ def extract_health_values(text: str) -> dict:
     
     return values
 
-def ask_llm(user_message: str) -> str:
+def ask_llm(user_message):
     """Get response from OpenAI or return mock response"""
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful diabetes health assistant."},
+                {"role": "system", "content": "You are a helpful diabetes health assistant. Always respond professionally and helpfully. If the user sends greetings or general questions, respond appropriately. If they share health information, acknowledge it and guide them to provide glucose, BMI, and age for a risk assessment."},
                 {"role": "user", "content": user_message}
             ]
         )
         return response.choices[0].message.content
-    except Exception as e:
-        # Mock responses for testing when API is down
-        if any(keyword in user_message.lower() for keyword in ["glucose", "bmi", "age"]):
-            return "I've noted your health information. Please provide all three values (glucose, BMI, and age) to get a diabetes risk assessment."
-        elif "risk" in user_message.lower():
-            return "Based on your health metrics, I recommend consulting with a healthcare provider for personalized advice about diabetes management and prevention."
+    except Exception:
+        # Smart fallback based on message content
+        msg_lower = user_message.lower()
+        if any(greeting in msg_lower for greeting in ["hi", "hello", "hey", "good morning", "good evening"]):
+            return "Hello! I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
+        elif any(health_term in msg_lower for health_term in ["glucose", "bmi", "age", "blood sugar", "diabetes", "risk"]):
+            return "I can help with diabetes risk assessment. Please provide your glucose level, BMI, and age so I can give you a personalized evaluation."
         else:
-            return "I'm currently in offline mode, but I can still help track your health data. Please share your glucose level, BMI, and age for a risk assessment."
+            return "I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
 
 def predict_diabetes(glucose: float, bmi: float, age: int) -> str:
     """Predict diabetes risk using deterministic medical thresholds"""
@@ -178,17 +179,29 @@ async def chat(message: ChatMessage, session_id: str = "default"):
     # Get AI response
     response = ask_llm(message.message)
     
+    # Only mark as ready for prediction if we have actual numeric values for all 3 metrics
+    has_glucose = sessions[session_id].get('glucose') is not None and sessions[session_id].get('glucose') > 0
+    has_bmi = sessions[session_id].get('bmi') is not None and sessions[session_id].get('bmi') > 0
+    has_age = sessions[session_id].get('age') is not None and sessions[session_id].get('age') > 0
+    
     return {
         "response": response,
         "extracted_data": extracted_values,
         "session_data": sessions[session_id],
-        "ready_for_prediction": len(sessions[session_id]) == 3
+        "ready_for_prediction": has_glucose and has_bmi and has_age
     }
 
 @app.post("/predict")
 @app.post("/api/predict")
 async def predict(health_data: HealthData):
     """Predict diabetes risk from health data"""
+    # Validate health data before processing
+    if not health_data.glucose or not health_data.bmi or not health_data.age:
+        raise HTTPException(status_code=400, detail="Valid glucose, BMI, and age values are required")
+    
+    if health_data.glucose <= 0 or health_data.bmi <= 0 or health_data.age <= 0:
+        raise HTTPException(status_code=400, detail="Health values must be positive numbers")
+    
     try:
         result = predict_diabetes(health_data.glucose, health_data.bmi, health_data.age)
         # Deterministic explanation (avoid re-asking for values on API errors)

@@ -172,6 +172,15 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+
+        .thinking-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 4px;
+        }
         
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -235,6 +244,7 @@
     <script>
         let sessionId = 'session_' + Date.now();
         let sessionData = {};
+        let thinkingMessageEl = null;
         
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
@@ -330,6 +340,8 @@
         
         async function performPrediction() {
             try {
+                thinkingMessageEl = addThinking();
+                
                 const response = await fetch('/api/predict', {
                     method: 'POST',
                     headers: {
@@ -344,7 +356,8 @@
                 
                 const data = await response.json();
                 
-                // Show result card
+                clearThinking();
+                
                 const chatContainer = document.getElementById('chatContainer');
                 const resultCard = document.createElement('div');
                 resultCard.className = `result-card ${data.risk_level === 'High Risk' ? 'risk-high' : data.risk_level === 'Medium Risk' ? 'risk-medium' : 'risk-low'}`;
@@ -363,8 +376,33 @@
                 updateStatus();
                 
             } catch (error) {
+                clearThinking();
                 console.error('Prediction error:', error);
                 addMessage('Sorry, I couldn\'t generate the prediction. Please try again.', 'assistant');
+            }
+        }
+
+        function addThinking() {
+            const chatContainer = document.getElementById('chatContainer');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message assistant';
+            wrapper.innerHTML = `
+                <div class="message-content">
+                    <span class="thinking-row">
+                        <span class="loading" style="width:16px;height:16px;border-width:2px"></span>
+                        Thinking...
+                    </span>
+                </div>
+            `;
+            chatContainer.appendChild(wrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return wrapper;
+        }
+
+        function clearThinking() {
+            if (thinkingMessageEl && thinkingMessageEl.parentNode) {
+                thinkingMessageEl.parentNode.removeChild(thinkingMessageEl);
+                thinkingMessageEl = null;
             }
         }
         

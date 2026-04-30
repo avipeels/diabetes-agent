@@ -4,6 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import re
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 
@@ -91,12 +95,13 @@ def ask_llm(user_message: str) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
-        # Fallback to mock responses if API fails
+        # Smart fallback based on message content
         print(f"OpenAI API Error: {e}")
-        if any(keyword in user_message.lower() for keyword in ["glucose", "bmi", "age"]):
-            return "I've noted your health information. Please provide all three values (glucose, BMI, and age) to get a diabetes risk assessment."
-        elif "risk" in user_message.lower():
-            return "Based on your health metrics, I recommend consulting with a healthcare provider for personalized advice about diabetes management and prevention."
+        msg_lower = user_message.lower()
+        if any(greeting in msg_lower for greeting in ["hi", "hello", "hey", "good morning", "good evening"]):
+            return "Hello! I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
+        elif any(health_term in msg_lower for health_term in ["glucose", "bmi", "age", "blood sugar", "diabetes", "risk"]):
+            return "I can help with diabetes risk assessment. Please provide your glucose level, BMI, and age so I can give you a personalized evaluation."
         else:
             return "I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
 
@@ -152,21 +157,25 @@ async def chat(message: ChatMessage, session_id: str = "default"):
     # Extract health values from message
     extracted_values = extract_health_values(message.message)
     
-    # If we found new values, clear the session and use only the new values
-    if extracted_values:
-        sessions[session_id] = extracted_values
+    # If no health data extracted, clear session to prevent old data from triggering prediction
+    if not extracted_values:
+        sessions[session_id] = {}
     else:
-        # Keep existing session data if no new values found
-        pass
+        sessions[session_id].update(extracted_values)
     
     # Get AI response
     response = ask_llm(message.message)
+    
+    # Only mark as ready for prediction if we have actual numeric values for all 3 metrics
+    has_glucose = sessions[session_id].get('glucose') is not None and sessions[session_id].get('glucose') > 0
+    has_bmi = sessions[session_id].get('bmi') is not None and sessions[session_id].get('bmi') > 0
+    has_age = sessions[session_id].get('age') is not None and sessions[session_id].get('age') > 0
     
     return {
         "response": response,
         "extracted_data": extracted_values,
         "session_data": sessions[session_id],
-        "ready_for_prediction": len(sessions[session_id]) == 3
+        "ready_for_prediction": has_glucose and has_bmi and has_age
     }
 
 @app.post("/predict")
@@ -176,6 +185,15 @@ async def predict(health_data: dict):
     glucose = health_data.get("glucose", 0)
     bmi = health_data.get("bmi", 0)
     age = health_data.get("age", 0)
+    
+    # Validate health data before processing
+    if not glucose or not bmi or not age:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Valid glucose, BMI, and age values are required")
+    
+    if glucose <= 0 or bmi <= 0 or age <= 0:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Health values must be positive numbers")
     
     # Use the actual prediction function
     risk_level = predict_diabetes(glucose, bmi, age)
