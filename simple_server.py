@@ -175,8 +175,10 @@ async def chat(message: ChatMessage, session_id: str = "default"):
     
     # If no health data extracted, clear session to prevent old data from triggering prediction
     if not extracted_values:
+        print(f"DEBUG: No health data found in '{message.message}', clearing session {session_id}")
         sessions[session_id] = {}
     else:
+        print(f"DEBUG: Found health data in '{message.message}': {extracted_values}")
         sessions[session_id].update(extracted_values)
     
     # Get AI response
@@ -187,11 +189,15 @@ async def chat(message: ChatMessage, session_id: str = "default"):
     has_bmi = sessions[session_id].get('bmi') is not None and sessions[session_id].get('bmi') > 0
     has_age = sessions[session_id].get('age') is not None and sessions[session_id].get('age') > 0
     
+    ready_for_prediction = has_glucose and has_bmi and has_age
+    print(f"DEBUG: Session data: {sessions[session_id]}")
+    print(f"DEBUG: Ready for prediction: {ready_for_prediction}")
+    
     return {
         "response": response,
         "extracted_data": extracted_values,
         "session_data": sessions[session_id],
-        "ready_for_prediction": has_glucose and has_bmi and has_age
+        "ready_for_prediction": ready_for_prediction
     }
 
 @app.post("/predict")

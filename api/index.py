@@ -178,7 +178,12 @@ async def chat(message: ChatMessage, session_id: str = "default"):
     
     # Extract health values from message
     extracted_values = extract_health_values(message.message)
-    sessions[session_id].update(extracted_values)
+    
+    # If no health data extracted, clear session to prevent old data from triggering prediction
+    if not extracted_values:
+        sessions[session_id] = {}
+    else:
+        sessions[session_id].update(extracted_values)
     
     # Get AI response
     response = ask_llm(message.message)
