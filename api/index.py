@@ -127,7 +127,16 @@ def predict_diabetes(glucose: float, bmi: float, age: int) -> str:
 async def root():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     html_path = os.path.join(current_dir, "..", "public", "index.html")
-    return FileResponse(html_path)
+    
+    # Check if file exists
+    if not os.path.exists(html_path):
+        raise HTTPException(status_code=404, detail="HTML file not found")
+    
+    return FileResponse(
+        html_path, 
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache"}
+    )
 
 @app.get("/api")
 async def api_root():
