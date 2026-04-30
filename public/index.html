@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Diabetes AI Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .chat-container {
+            padding: 30px;
+            min-height: 400px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 15px;
+            position: relative;
+        }
+        
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message.assistant .message-content {
+            background: #f1f3f4;
+            color: #333;
+        }
+        
+        .message-icon {
+            margin-right: 10px;
+            font-size: 1.5rem;
+        }
+        
+        .message.user .message-icon {
+            margin-left: 10px;
+            margin-right: 0;
+        }
+        
+        .input-container {
+            padding: 20px 30px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-field {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .input-field:focus {
+            border-color: #667eea;
+        }
+        
+        .send-button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-indicator {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            margin: 20px 30px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .result-card {
+            margin: 20px 30px;
+            padding: 20px;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+            background: #f8f9fa;
+        }
+        
+        .risk-high {
+            border-left-color: #e74c3c;
+            background: #fdf2f2;
+        }
+        
+        .risk-medium {
+            border-left-color: #f39c12;
+            background: #fef9e7;
+        }
+        
+        .risk-low {
+            border-left-color: #27ae60;
+            background: #f2fdf5;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+            
+            .chat-container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Diabetes AI Assistant</h1>
+            <p>Share your health information and get personalized diabetes risk assessment</p>
+        </div>
+        
+        <div class="status-indicator" id="statusIndicator">
+            💬 Tell me about your health (glucose level, BMI, and age)
+        </div>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="message assistant">
+                <div class="message-content">
+                    <span class="message-icon">🤖</span>
+                    Hello! I'm your diabetes health assistant. Please share your glucose level, BMI, and age, and I'll provide a personalized risk assessment.
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input 
+                type="text" 
+                class="input-field" 
+                id="messageInput" 
+                placeholder="Tell me about your health..."
+                onkeypress="handleKeyPress(event)"
+            >
+            <button class="send-button" id="sendButton" onclick="sendMessage()">
+                Send
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = 'session_' + Date.now();
+        let sessionData = {};
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // Show loading state
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<div class="loading"></div>';
+            
+            try {
+                // Send message to API
+                const response = await fetch('http://127.0.0.1:8004/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Add assistant response
+                addMessage(data.response, 'assistant');
+                
+                // Update session data
+                sessionData = data.session_data;
+                updateStatus();
+                
+                // If ready for prediction, automatically predict
+                if (data.ready_for_prediction) {
+                    await performPrediction();
+                }
+                
+            } catch (error) {
+                addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+                console.error('Error:', error);
+            } finally {
+                sendButton.disabled = false;
+                sendButton.innerHTML = 'Send';
+            }
+        }
+        
+        function addMessage(content, type) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const icon = type === 'user' ? '👤' : '🤖';
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${type === 'assistant' ? `<span class="message-icon">${icon}</span>` : ''}
+                    <span>${content}</span>
+                    ${type === 'user' ? `<span class="message-icon">${icon}</span>` : ''}
+                </div>
+            `;
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function updateStatus() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const collectedData = [];
+            
+            if (sessionData.glucose) collectedData.push(`Glucose: ${sessionData.glucose}`);
+            if (sessionData.bmi) collectedData.push(`BMI: ${sessionData.bmi}`);
+            if (sessionData.age) collectedData.push(`Age: ${sessionData.age}`);
+            
+            if (collectedData.length === 0) {
+                statusIndicator.innerHTML = '💬 Tell me about your health (glucose level, BMI, and age)';
+            } else if (collectedData.length < 3) {
+                statusIndicator.innerHTML = `📊 Collected: ${collectedData.join(', ')} | Still need: ${3 - collectedData.length} more values`;
+            } else {
+                statusIndicator.innerHTML = '✅ All data collected! Generating your risk assessment...';
+            }
+        }
+        
+        async function performPrediction() {
+            try {
+                const response = await fetch('http://127.0.0.1:8004/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        glucose: sessionData.glucose,
+                        bmi: sessionData.bmi,
+                        age: sessionData.age
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Show result card
+                const chatContainer = document.getElementById('chatContainer');
+                const resultCard = document.createElement('div');
+                resultCard.className = `result-card ${data.risk_level === 'High Risk' ? 'risk-high' : data.risk_level === 'Medium Risk' ? 'risk-medium' : 'risk-low'}`;
+                
+                resultCard.innerHTML = `
+                    <h3>🧠 Diabetes Risk Assessment</h3>
+                    <p><strong>Risk Level:</strong> ${data.risk_level}</p>
+                    <p><strong>Based on:</strong> Glucose ${data.input_data.glucose}, BMI ${data.input_data.bmi}, Age ${data.input_data.age}</p>
+                    <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+                    <p><strong>💬 AI Advice:</strong> ${data.explanation}</p>
+                `;
+                
+                chatContainer.appendChild(resultCard);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                updateStatus();
+                
+            } catch (error) {
+                console.error('Prediction error:', error);
+                addMessage('Sorry, I couldn\'t generate the prediction. Please try again.', 'assistant');
+            }
+        }
+        
+        // Initialize
+        document.getElementById('messageInput').focus();
+    </script>
+</body>
+</html>
