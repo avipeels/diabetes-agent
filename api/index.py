@@ -45,6 +45,7 @@ def extract_health_values(text: str) -> dict:
     
     # Extract glucose (numbers in context of glucose)
     glucose_patterns = [
+        r'glucose\s*=\s*(\d+(?:\.\d+)?)',
         r'glucose\s*(?:is\s*)?(\d+(?:\.\d+)?)',
         r'(\d+(?:\.\d+)?)\s*(?:mg/dl)?\s*glucose',
         r'glucose\s*(?:level\s*)?(\d+(?:\.\d+)?)'
@@ -52,6 +53,7 @@ def extract_health_values(text: str) -> dict:
     
     # Extract BMI
     bmi_patterns = [
+        r'bmi\s*=\s*(\d+(?:\.\d+)?)',
         r'bmi\s*(?:is\s*)?(\d+(?:\.\d+)?)',
         r'(\d+(?:\.\d+)?)\s*bmi',
         r'body\s*mass\s*index\s*(?:is\s*)?(\d+(?:\.\d+)?)'
@@ -59,6 +61,7 @@ def extract_health_values(text: str) -> dict:
     
     # Extract age
     age_patterns = [
+        r'age\s*=\s*(\d+)',
         r'age\s*(?:is\s*)?(\d+)',
         r'(\d+)\s*(?:years?\s*)?old',
         r'i\s*am\s*(\d+)\s*(?:years?\s*)?old'
@@ -125,17 +128,40 @@ def predict_diabetes(glucose: float, bmi: float, age: int) -> str:
 
 @app.get("/")
 async def root():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    html_path = os.path.join(current_dir, "..", "public", "index.html")
+    # Try different possible paths for the HTML file
+    possible_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "public", "index.html"),
+        os.path.join(os.path.dirname(__file__), "public", "index.html"),
+        os.path.join(os.getcwd(), "public", "index.html"),
+        "public/index.html",
+        "index.html"
+    ]
     
-    # Check if file exists
-    if not os.path.exists(html_path):
-        raise HTTPException(status_code=404, detail="HTML file not found")
+    for html_path in possible_paths:
+        if os.path.exists(html_path):
+            return FileResponse(
+                html_path, 
+                media_type="text/html",
+                headers={"Cache-Control": "no-cache"}
+            )
     
-    return FileResponse(
-        html_path, 
-        media_type="text/html",
-        headers={"Cache-Control": "no-cache"}
+    # If no file found, return debug info
+    debug_info = {
+        "current_dir": os.path.dirname(__file__),
+        "cwd": os.getcwd(),
+        "tried_paths": possible_paths,
+        "available_files": []
+    }
+    
+    # List files in current directory and parent directory
+    for root, dirs, files in os.walk(os.path.dirname(__file__)):
+        debug_info["available_files"].extend([os.path.join(root, f) for f in files if f.endswith('.html')])
+        if len(debug_info["available_files"]) > 10:  # Limit to avoid too much output
+            break
+    
+    raise HTTPException(
+        status_code=404, 
+        detail=f"HTML file not found. Debug info: {debug_info}"
     )
 
 @app.get("/api")
