@@ -111,20 +111,36 @@ def ask_llm(user_message: str) -> str:
             return "I'm currently in offline mode, but I can still help track your health data. Please share your glucose level, BMI, and age for a risk assessment."
 
 def predict_diabetes(glucose: float, bmi: float, age: int) -> str:
-    """Predict diabetes risk using the trained model"""
-    try:
-        # Try to load the pickle file
-        with open("diabetes_model.pkl", "rb") as f:
-            model = pickle.load(f)
-        
-        prediction = model.predict([[glucose, bmi, age]])[0]
-        return "High Risk" if prediction == 1 else "Low Risk"
-    except FileNotFoundError:
-        # Fallback simple prediction if model file doesn't exist
-        if glucose > 126 or bmi > 30 or age > 45:
-            return "High Risk"
-        else:
-            return "Low Risk"
+    """Predict diabetes risk using deterministic medical thresholds"""
+    risk_score = 0
+
+    # Glucose risk (most important factor)
+    if glucose >= 126:
+        risk_score += 3  # Diabetes range
+    elif glucose >= 100:
+        risk_score += 2  # Prediabetes range
+    elif glucose >= 90:
+        risk_score += 1  # Elevated normal
+
+    # BMI risk
+    if bmi >= 30:
+        risk_score += 2  # Obese
+    elif bmi >= 25:
+        risk_score += 1  # Overweight
+
+    # Age risk
+    if age >= 65:
+        risk_score += 2  # Higher age risk
+    elif age >= 45:
+        risk_score += 1  # Moderate age risk
+
+    # Determine risk level
+    if risk_score >= 5:
+        return "High Risk"
+    elif risk_score >= 3:
+        return "Medium Risk"
+    else:
+        return "Low Risk"
 
 @app.get("/")
 async def root():
