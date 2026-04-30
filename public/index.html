@@ -94,6 +94,7 @@
             border-top: 1px solid #eee;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
         
         .input-field {
@@ -204,6 +205,23 @@
             .chat-container {
                 padding: 20px;
             }
+            
+            .input-container {
+                flex-direction: column;
+                gap: 12px;
+                padding: 15px 20px;
+            }
+            
+            .input-field {
+                width: 100%;
+                flex: none;
+            }
+            
+            .send-button {
+                width: 100%;
+                padding: 15px;
+                border-radius: 25px;
+            }
         }
     </style>
 </head>
@@ -232,7 +250,7 @@
                 type="text" 
                 class="input-field" 
                 id="messageInput" 
-                placeholder="Tell me about your health..."
+                placeholder="glucose=130.0, bmi=20.0, age=36"
                 onkeypress="handleKeyPress(event)"
             >
             <button class="send-button" id="sendButton" onclick="sendMessage()">
