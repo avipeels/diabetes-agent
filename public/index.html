@@ -259,7 +259,7 @@
             
             try {
                 // Send message to API
-                const response = await fetch('http://127.0.0.1:8004/chat', {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -330,7 +330,7 @@
         
         async function performPrediction() {
             try {
-                const response = await fetch('http://127.0.0.1:8004/predict', {
+                const response = await fetch('/api/predict', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

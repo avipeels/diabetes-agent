@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 import pickle
 import os
@@ -128,40 +128,20 @@ def predict_diabetes(glucose: float, bmi: float, age: int) -> str:
 
 @app.get("/")
 async def root():
-    # Try different possible paths for the HTML file
-    possible_paths = [
-        os.path.join(os.path.dirname(__file__), "..", "public", "index.html"),
-        os.path.join(os.path.dirname(__file__), "public", "index.html"),
-        os.path.join(os.getcwd(), "public", "index.html"),
-        "public/index.html",
-        "index.html"
-    ]
-    
-    for html_path in possible_paths:
-        if os.path.exists(html_path):
-            return FileResponse(
-                html_path, 
-                media_type="text/html",
-                headers={"Cache-Control": "no-cache"}
-            )
-    
-    # If no file found, return debug info
-    debug_info = {
-        "current_dir": os.path.dirname(__file__),
-        "cwd": os.getcwd(),
-        "tried_paths": possible_paths,
-        "available_files": []
-    }
-    
-    # List files in current directory and parent directory
-    for root, dirs, files in os.walk(os.path.dirname(__file__)):
-        debug_info["available_files"].extend([os.path.join(root, f) for f in files if f.endswith('.html')])
-        if len(debug_info["available_files"]) > 10:  # Limit to avoid too much output
-            break
-    
-    raise HTTPException(
-        status_code=404, 
-        detail=f"HTML file not found. Debug info: {debug_info}"
+    # This route should not be called since Vercel serves static files directly
+    # But keeping it as a fallback
+    return HTMLResponse(
+        content="""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Diabetes AI Assistant</title></head>
+        <body>
+            <h1>Diabetes AI Assistant</h1>
+            <p>Please visit the main page at <a href="/index.html">/index.html</a></p>
+        </body>
+        </html>
+        """,
+        status_code=200
     )
 
 @app.get("/api")

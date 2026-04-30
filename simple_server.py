@@ -143,6 +143,7 @@ async def api_root():
     return {"message": "Simple server is working"}
 
 @app.post("/chat")
+@app.post("/api/chat")
 async def chat(message: ChatMessage, session_id: str = "default"):
     """Handle chat messages and extract health data"""
     if session_id not in sessions:
@@ -169,6 +170,7 @@ async def chat(message: ChatMessage, session_id: str = "default"):
     }
 
 @app.post("/predict")
+@app.post("/api/predict")
 async def predict(health_data: dict):
     """Predict diabetes risk using actual health data"""
     glucose = health_data.get("glucose", 0)
