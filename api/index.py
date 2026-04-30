@@ -191,12 +191,25 @@ async def predict(health_data: HealthData):
     """Predict diabetes risk from health data"""
     try:
         result = predict_diabetes(health_data.glucose, health_data.bmi, health_data.age)
-        
-        # Get explanation from AI
-        explanation = ask_llm(
-            f"A patient has {result} diabetes risk with glucose: {health_data.glucose}, BMI: {health_data.bmi}, age: {health_data.age}. Explain what this means and give advice."
-        )
-        
+        # Deterministic explanation (avoid re-asking for values on API errors)
+        if result == "High Risk":
+            explanation = (
+                "Your metrics indicate a high risk of diabetes. "
+                "Please consult a healthcare provider promptly for diagnosis and management. "
+                "Focus on glucose control, balanced diet, and regular activity."
+            )
+        elif result == "Medium Risk":
+            explanation = (
+                "You have a moderate risk of diabetes. "
+                "Discuss with a healthcare provider and adopt lifestyle changes: balanced diet, "
+                "regular exercise, weight management, and routine monitoring."
+            )
+        else:
+            explanation = (
+                "Your metrics suggest a lower risk. "
+                "Maintain a healthy lifestyle, keep regular checkups, and monitor glucose as advised."
+            )
+
         return {
             "risk_level": result,
             "explanation": explanation,
