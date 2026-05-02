@@ -121,6 +121,55 @@ def ask_llm(user_message: str) -> str:
         else:
             return "I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
 
+def generate_dynamic_advice(glucose: float, bmi: float, age: int, risk_level: str) -> str:
+    """Generate personalized advice using AI based on specific health metrics"""
+    if not client:
+        # Fallback to static advice if no AI client
+        if risk_level == "High Risk":
+            return f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a high risk of diabetes. I strongly recommend consulting with a healthcare provider immediately for proper diagnosis and management. Your elevated glucose level requires medical attention."
+        elif risk_level == "Medium Risk":
+            return f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a moderate risk of diabetes. I recommend discussing these results with a healthcare provider and making lifestyle changes like improved diet and regular exercise to lower your risk."
+        else:
+            return f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you appear to have a lower risk of diabetes. However, regular monitoring and healthy lifestyle choices are always recommended."
+    
+    try:
+        prompt = f"""
+        Based on these specific health metrics:
+        - Glucose: {glucose} mg/dL
+        - BMI: {bmi} kg/m²  
+        - Age: {age} years
+        - Risk Level: {risk_level}
+        
+        Provide personalized, actionable advice for diabetes management. Consider:
+        1. The specific glucose level and what it means
+        2. The BMI category and its implications
+        3. Age-related risk factors
+        4. Concrete lifestyle recommendations
+        5. When to seek medical attention
+        
+        Keep it concise (2-3 sentences) but specific to their numbers.
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable diabetes health advisor providing personalized advice based on specific health metrics."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        return response.choices[0].message.content
+        
+    except Exception as e:
+        print(f"AI advice generation error: {e}")
+        # Fallback to static advice
+        if risk_level == "High Risk":
+            return f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a high risk of diabetes. I strongly recommend consulting with a healthcare provider immediately for proper diagnosis and management."
+        elif risk_level == "Medium Risk":
+            return f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a moderate risk of diabetes. I recommend discussing these results with a healthcare provider and making lifestyle changes."
+        else:
+            return f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a lower risk of diabetes. Continue maintaining healthy lifestyle choices."
+
 def predict_diabetes(glucose: float, bmi: float, age: int) -> str:
     """More accurate diabetes risk prediction based on medical guidelines"""
     risk_score = 0
@@ -220,13 +269,8 @@ async def predict(health_data: dict):
     # Use the actual prediction function
     risk_level = predict_diabetes(glucose, bmi, age)
     
-    # Generate explanation based on actual risk level
-    if risk_level == "High Risk":
-        explanation = f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a high risk of diabetes. I strongly recommend consulting with a healthcare provider immediately for proper diagnosis and management. Your elevated glucose level requires medical attention."
-    elif risk_level == "Medium Risk":
-        explanation = f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you have a moderate risk of diabetes. I recommend discussing these results with a healthcare provider and making lifestyle changes like improved diet and regular exercise to lower your risk."
-    else:
-        explanation = f"Based on your health metrics (glucose: {glucose}, BMI: {bmi}, age: {age}), you appear to have a lower risk of diabetes. However, regular monitoring and healthy lifestyle choices are always recommended."
+    # Generate dynamic AI advice based on specific health data
+    explanation = generate_dynamic_advice(glucose, bmi, age, risk_level)
     
     return {
         "risk_level": risk_level,
