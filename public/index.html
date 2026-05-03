@@ -253,8 +253,6 @@
                 id="messageInput" 
                 placeholder="glucose=130.0, bmi=20.0, age=36"
                 onkeypress="handleKeyPress(event)"
-                oninput="handleInput(event)"
-                onkeydown="handleKeyDown(event)"
             >
             <button class="send-button" id="sendButton" onclick="sendMessage()">
                 Send
@@ -271,41 +269,6 @@
             if (event.key === 'Enter') {
                 sendMessage();
             }
-        }
-        
-                
-        function handleInput(event) {
-            const input = event.target;
-            const value = input.value.trim();
-            const lastChar = value.charAt(value.length - 1).toLowerCase();
-            
-            // Only autocomplete for health-related prefixes
-            const healthPrefixes = ['g', 'b', 'a'];
-            if (healthPrefixes.includes(lastChar)) {
-                const completion = getHealthCompletion(lastChar);
-                if (completion) {
-                    replaceText(lastChar, completion, input);
-                }
-            }
-        }
-        
-        function getHealthCompletion(char) {
-            const completions = {
-                'g': 'glucose=',
-                'b': 'bmi=',
-                'a': 'age='
-            };
-            
-            return completions[char] || null;
-        }
-        
-        function replaceText(oldText, newText, inputElement) {
-            const value = inputElement.value.trim();
-            const newValue = value.substring(0, value.lastIndexOf(oldText)) + newText;
-            inputElement.value = newValue;
-            
-            inputElement.focus();
-            inputElement.setSelectionRange(newValue.length, newValue.length);
         }
         
         async function sendMessage() {

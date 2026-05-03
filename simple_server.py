@@ -5,23 +5,32 @@ from pydantic import BaseModel
 import os
 import re
 from dotenv import load_dotenv
+import ssl
+import sys
+from openai import OpenAI
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Initialize OpenAI client once
+# Get API key from environment variable
 api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable not set")
 
-# Force print to stderr to ensure it shows up
-import sys
-print(f"=== DEBUG: API Key loaded: {'Yes' if api_key else 'No'} ===", file=sys.stderr)
-if api_key:
-    print(f"=== DEBUG: API Key starts with: {api_key[:10]}... ===", file=sys.stderr)
+print("=== DEBUG: API Key loaded: Yes ===")
+print(f"=== DEBUG: API Key starts with: {api_key[:10]}... ===")
+
+# Fix SSL certificate verification issue on macOS
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 else:
-    print("=== DEBUG: No API key found - will use fallback responses ===", file=sys.stderr)
+    ssl._create_default_https_context = _create_unverified_https_context
 
-from openai import OpenAI
-client = OpenAI(api_key=api_key) if api_key else None
+# Initialize OpenAI client with SSL verification disabled
+import httpx
+client = OpenAI(api_key=api_key, http_client=httpx.Client(verify=False)) if api_key else None
 
 app = FastAPI()
 
@@ -102,24 +111,67 @@ def ask_llm(user_message: str) -> str:
             return "I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
     
     try:
+        print(f"DEBUG: Attempting OpenAI API call...")
+        print(f"DEBUG: Client exists: {client is not None}")
+        print(f"DEBUG: API key starts with: {api_key[:10] if api_key else 'None'}...")
+        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful diabetes health assistant."},
+                {"role": "system", "content": "You are a helpful diabetes health assistant. Be conversational, varied, and engaging. Avoid repetitive phrases. Mix up your responses with different greetings and approaches based on the age of the user. IMPORTANT: Maintain conversation context. If the user agrees to share health information, acknowledge their agreement and gently guide them to provide specific numbers (glucose, BMI, age). Don't keep asking the same question repeatedly. Continue the conversation naturally based on what they say."},
                 {"role": "user", "content": user_message}
-            ]
+            ],
+            temperature=0.8,
+            top_p=0.9,
+            max_tokens=150,
+            presence_penalty=0.6,
+            frequency_penalty=0.6
         )
+        print(f"DEBUG: OpenAI API call successful")
         return response.choices[0].message.content
     except Exception as e:
-        # Smart fallback based on message content
-        print(f"OpenAI API Error: {e}")
+        # Dynamic fallback responses when API fails
+        print(f"DEBUG: OpenAI API Error Type: {type(e).__name__}")
+        print(f"DEBUG: OpenAI API Error: {e}")
+        print(f"DEBUG: API Key valid: {api_key and api_key.startswith('sk-')}")
+        print(f"DEBUG: API Key length: {len(api_key) if api_key else 0}")
         msg_lower = user_message.lower()
+        
+        import random
+        greeting_responses = [
+            "Hey there! I'm your diabetes health assistant. Ready to check your health numbers?",
+            "Hi! I'm here to help with diabetes risk assessment. What are your glucose, BMI, and age?",
+            "Hello! Let's assess your diabetes health together. Can you share your health metrics?",
+            "Hey! I'm your diabetes health assistant. What are your current health numbers?",
+            "Hi there! Ready to evaluate your diabetes risk? I'll need your glucose, BMI, and age."
+        ]
+        
+        # Context-aware responses for when user agrees or is ready
+        agreement_responses = [
+            "Great! Let's get started. What's your current glucose level?",
+            "Perfect! Let me know your glucose, BMI, and age when you're ready.",
+            "Excellent! Let's start with your glucose level - what is it?",
+            "Great! I'll need your health numbers. What's your glucose level first?",
+            "Perfect! Let's begin the assessment. What's your current glucose reading?"
+        ]
+        
+        # Context-aware responses for general conversation
+        general_responses = [
+            "I'm your diabetes health assistant. How can I help you today?",
+            "Hello! I'm here to help with diabetes health monitoring. What would you like to know?",
+            "Hi! I can provide diabetes risk assessment and health guidance. What's on your mind?",
+            "Hey! I'm your diabetes health assistant. Feel free to ask me anything about diabetes health.",
+            "Hello! I'm here to help with diabetes evaluation and health advice. How can I assist you?"
+        ]
+        
         if any(greeting in msg_lower for greeting in ["hi", "hello", "hey", "good morning", "good evening"]):
-            return "Hello! I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
+            return random.choice(greeting_responses)
+        elif any(agreement in msg_lower for agreement in ["sure", "okay", "ok", "yes", "yeah", "alright", "sounds good", "ready", "let's do it", "of course"]):
+            return random.choice(agreement_responses)
         elif any(health_term in msg_lower for health_term in ["glucose", "bmi", "age", "blood sugar", "diabetes", "risk"]):
-            return "I can help with diabetes risk assessment. Please provide your glucose level, BMI, and age so I can give you a personalized evaluation."
+            return random.choice(general_responses)
         else:
-            return "I'm your diabetes health assistant. Please share your glucose level, BMI, and age for a risk assessment."
+            return random.choice(general_responses)
 
 def generate_dynamic_advice(glucose: float, bmi: float, age: int, risk_level: str) -> str:
     """Generate personalized advice using AI based on specific health metrics"""
@@ -153,9 +205,14 @@ def generate_dynamic_advice(glucose: float, bmi: float, age: int, risk_level: st
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable diabetes health advisor providing personalized advice based on specific health metrics."},
+                {"role": "system", "content": "You are a knowledgeable diabetes health advisor providing personalized advice based on specific health metrics. Be varied and creative in your recommendations while maintaining medical accuracy. Avoid repetitive phrasing. Consider the age of the user in your recommendations."},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            temperature=0.9,
+            top_p=0.95,
+            max_tokens=200,
+            presence_penalty=0.7,
+            frequency_penalty=0.7
         )
         
         return response.choices[0].message.content
@@ -278,6 +335,37 @@ async def predict(health_data: dict):
         "input_data": {"glucose": glucose, "bmi": bmi, "age": age}
     }
 
+def test_openai_connection():
+    """Test OpenAI API connection"""
+    try:
+        print("=== Testing OpenAI Connection ===")
+        print(f"DEBUG: Testing basic network connectivity...")
+        
+        # Test basic connectivity first
+        import requests
+        try:
+            response = requests.get("https://api.openai.com/", timeout=5, verify=False)
+            print(f"DEBUG: OpenAI base URL reachable: {response.status_code}")
+        except Exception as net_e:
+            print(f"❌ Network Error: {net_e}")
+            return False
+        
+        print(f"DEBUG: API Key loaded: {api_key[:10] if api_key else 'None'}...")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "Say 'test'"}],
+            max_tokens=10,
+            timeout=10
+        )
+        print(f"✅ OpenAI Connection Successful: {response.choices[0].message.content}")
+        return True
+    except Exception as e:
+        print(f"❌ OpenAI Connection Failed: {type(e).__name__}: {e}")
+        print(f"DEBUG: This might be a network/firewall issue")
+        return False
+
 if __name__ == "__main__":
     import uvicorn
+    # Test OpenAI connection before starting server
+    test_openai_connection()
     uvicorn.run(app, host="127.0.0.1", port=8004)

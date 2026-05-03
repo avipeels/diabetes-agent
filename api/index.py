@@ -117,9 +117,14 @@ def generate_dynamic_advice(glucose: float, bmi: float, age: int, risk_level: st
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable diabetes health advisor providing personalized advice based on specific health metrics."},
+                {"role": "system", "content": "You are a knowledgeable diabetes health advisor providing personalized advice based on specific health metrics. Be varied and creative in your recommendations while maintaining medical accuracy. Avoid repetitive phrasing."},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            temperature=0.9,
+            top_p=0.95,
+            max_tokens=200,
+            presence_penalty=0.7,
+            frequency_penalty=0.7
         )
         
         return response.choices[0].message.content
@@ -140,9 +145,14 @@ def ask_llm(user_message):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful diabetes health assistant. Always respond professionally and helpfully. If the user sends greetings or general questions, respond appropriately. If they share health information, acknowledge it and guide them to provide glucose, BMI, and age for a risk assessment."},
+                {"role": "system", "content": "You are a helpful diabetes health assistant. Be conversational, varied, and engaging. Avoid repetitive phrases. Mix up your responses with different greetings and approaches."},
                 {"role": "user", "content": user_message}
-            ]
+            ],
+            temperature=0.8,
+            top_p=0.9,
+            max_tokens=150,
+            presence_penalty=0.6,
+            frequency_penalty=0.6
         )
         return response.choices[0].message.content
     except Exception:
